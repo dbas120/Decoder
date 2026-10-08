@@ -1,0 +1,58 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><title>Secret Scrambler</title><link rel="manifest" href="manifest.webmanifest"><link rel="icon" type="image/png" href="icon-192.png"><link rel="apple-touch-icon" href="icon-192.png"><meta name="theme-color" content="#020a02">
+<style>
+:root{--bg:#020a02;--card:rgba(0,18,0,.82);--ink:#b9ffb9;--mute:#46c463;--acc:#00ff41;--line:#0e6b24;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);color-scheme:dark}
+html,body{height:auto}
+#rain{position:fixed;inset:0;width:100%;height:100%;z-index:0;opacity:.45}
+main{position:relative;z-index:1}
+h1{text-shadow:0 0 10px var(--acc)}
+.card{box-shadow:0 0 14px rgba(0,255,65,.12)}
+textarea,input{font-family:ui-monospace,Menlo,Consolas,monospace}
+button{color:#001a05}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 system-ui,-apple-system,Segoe UI,sans-serif}
+main{max-width:640px;margin:0 auto;padding:20px 16px 40px}
+h1{font-size:1.4rem;margin:0 0 4px}p.s{color:var(--mute);margin:0 0 18px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:16px}
+h2{font-size:1rem;margin:0 0 10px}label{font-size:.85rem;color:var(--mute)}
+textarea,input{width:100%;box-sizing:border-box;background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:10px;font:inherit;margin:4px 0 10px}
+textarea{min-height:90px;resize:vertical;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.95rem}
+button{background:var(--acc);color:var(--bg);border:0;border-radius:8px;padding:9px 14px;font:inherit;font-weight:600;cursor:pointer;margin-right:8px}
+button.g{background:transparent;color:var(--acc);border:1px solid var(--acc)}
+</style></head><body><canvas id="rain" aria-hidden="true"></canvas><main>
+<h1>🔐 Secret Scrambler</h1>
+<p class="s">Shifts every character (letters, numbers, symbols) then shuffles them in a zigzag pattern. Both sides need the same secret key.</p>
+<div class="card"><label for="key">Secret key (any letters, numbers or symbols)</label><input id="key" value="1234" autocomplete="off"></div>
+<div class="card"><h2>Encrypt</h2><label for="plain">Your message</label><textarea id="plain" placeholder="Type a message..."></textarea>
+<button id="enc">Encrypt</button><button class="g" id="cp1">Copy</button>
+<label for="out1">Scrambled result</label><textarea id="out1" readonly></textarea></div>
+<div class="card"><h2>Decrypt</h2><label for="cipher">Paste the scrambled message (decrypts instantly)</label><textarea id="cipher" placeholder="Paste here..."></textarea>
+<label for="out2">Original message</label><textarea id="out2" readonly></textarea><button class="g" id="cp2">Copy</button></div>
+</main><script>
+const A=[];for(let c=32;c<=126;c++)A.push(String.fromCharCode(c));
+const N=95;
+function keyInfo(key){const codes=[...key].map(c=>c.charCodeAt(0));if(!codes.length)codes.push(7);const sum=codes.reduce((a,b)=>a+b,0);return{codes,rails:2+(sum%5)};}
+function shiftAt(k,i){return (k.codes[i%k.codes.length]+i*7)%N;}
+function perm(n,rails){const rows=Array.from({length:rails},()=>[]);let r=0,d=1;for(let i=0;i<n;i++){rows[r].push(i);if(r===0)d=1;else if(r===rails-1)d=-1;r+=d;}return rows.flat();}
+function encrypt(t,key){const k=keyInfo(key);const s=[...t].map((c,i)=>{const p=c.charCodeAt(0)-32;return(c.length===1&&p>=0&&p<N)?A[(p+shiftAt(k,i))%N]:c;});return perm(s.length,k.rails).map(i=>s[i]).join('');}
+function decrypt(t,key){const k=keyInfo(key);const ch=[...t];const s=new Array(ch.length);perm(ch.length,k.rails).forEach((src,j)=>{s[src]=ch[j];});return s.map((c,i)=>{const p=c.charCodeAt(0)-32;return(c.length===1&&p>=0&&p<N)?A[(((p-shiftAt(k,i))%N)+N)%N]:c;}).join('');}
+const $=id=>document.getElementById(id);
+const doEnc=()=>{$('out1').value=encrypt($('plain').value,$('key').value)};
+const doDec=()=>{$('out2').value=decrypt($('cipher').value,$('key').value)};
+$('enc').onclick=doEnc;$('plain').oninput=doEnc;$('cipher').oninput=doDec;
+$('key').oninput=()=>{doEnc();doDec()};
+const cp=(id)=>async()=>{try{await navigator.clipboard.writeText($(id).value)}catch(e){$(id).select();document.execCommand('copy')}};
+$('cp1').onclick=cp('out1');$('cp2').onclick=cp('out2');
+
+(function(){const c=document.getElementById('rain'),x=c.getContext('2d');
+const set='ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@#$%&*+=<>?ｱｲｳｴｵｶｷｸｹｺｻｼｽｾｿ';
+let w,h,cols,drops,fs=16;
+function size(){w=c.width=innerWidth;h=c.height=innerHeight;cols=Math.ceil(w/fs);drops=Array.from({length:cols},()=>Math.random()*h/fs);}
+size();addEventListener('resize',size);
+function draw(){x.fillStyle='rgba(2,10,2,.09)';x.fillRect(0,0,w,h);x.font=fs+'px monospace';
+for(let i=0;i<cols;i++){x.fillStyle=Math.random()<.04?'#d8ffd8':'#00ff41';
+x.fillText(set[Math.floor(Math.random()*set.length)],i*fs,drops[i]*fs);
+if(drops[i]*fs>h&&Math.random()>.975)drops[i]=0;drops[i]+=1;}}
+x.fillStyle='#020a02';x.fillRect(0,0,w,h);
+if(matchMedia('(prefers-reduced-motion: reduce)').matches){for(let i=0;i<60;i++)draw();}
+else setInterval(draw,60);})();
+if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').catch(()=>{});}
+</script></body></html>
